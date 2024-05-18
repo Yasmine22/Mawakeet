@@ -10,7 +10,8 @@ import com.google.gson.annotations.SerializedName
 	foreignKeys = [ForeignKey(
 		entity = Date::class,
 		childColumns = ["date_id"],
-		parentColumns = ["id"])])
+		parentColumns = ["id"],
+		onDelete = ForeignKey.CASCADE)])
 data class Timings (
 
 	@PrimaryKey(autoGenerate = true)

@@ -9,8 +9,6 @@ import androidx.databinding.DataBindingUtil
 import com.yasmineraafat.mawakeet.databinding.ActivityMainBinding
 import com.yasmineraafat.mawakeet.viewmodels.MawakeetViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import io.reactivex.disposables.Disposable
-import java.util.Calendar
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -20,6 +18,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
+        binding.lifecycleOwner = this
         binding.mawakeetViewModel = viewModel
 
         binding.mawakeetViewModel?.date?.observe(this) {
@@ -40,10 +39,12 @@ class MainActivity : ComponentActivity() {
         }
 
 
-        binding.mawakeetViewModel?.getDateByTimestamp()
+        binding.mawakeetViewModel?.getDateFromDBByCurrentDate()
     }
 
-
-
+    override fun onDestroy() {
+        super.onDestroy()
+        binding.mawakeetViewModel?.compositeDisposable?.clear()
+    }
 }
 

@@ -28,7 +28,7 @@ interface DateDAO {
     fun updateDate(date: Date): Completable
 
     @Query("DELETE FROM Date")
-    fun deleteDate(): Completable
+    fun deleteDate(): Single<Int>
 
     @Query("SELECT * FROM Date WHERE id = :dateId")
     fun getSelectedDateById(dateId: Long): Single<Date>

@@ -13,15 +13,22 @@ import com.yasmineraafat.mawakeet.repos.MawakeetRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.reactivex.Observer
 import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.disposables.Disposable
 import io.reactivex.schedulers.Schedulers
 import java.text.SimpleDateFormat
+import java.util.ArrayList
 import java.util.Calendar
 import javax.inject.Inject
 
+
 @HiltViewModel
-class MawakeetViewModel @Inject constructor(application: Application) :  AndroidViewModel(application) {
-    @Inject lateinit var repository: MawakeetRepository
+class MawakeetViewModel @Inject constructor(application: Application) :
+    AndroidViewModel(application) {
+    var compositeDisposable: CompositeDisposable = CompositeDisposable()
+
+    @Inject
+    lateinit var repository: MawakeetRepository
     val date = MutableLiveData<Date>()
     val timings = MutableLiveData<Timings>()
     val errorMessage = MutableLiveData<String>()
@@ -29,69 +36,79 @@ class MawakeetViewModel @Inject constructor(application: Application) :  Android
         get() = getApplication<Application>().applicationContext
     private var appDatabase = ApplicationDatabase.getInstance(context)!!
 
-    fun getMawakeet(){
+    fun getMawakeet() {
         val calendar = Calendar.getInstance()
         val year = calendar.get(Calendar.YEAR).toString()
         val month = calendar.get(Calendar.MONTH).plus(1).toString()
+//        val month = "06"
         val longitude = 31.38333
-        val latitude =31.05
-       val result = repository.getMawakeet(year, month, longitude, latitude).subscribe(object :
-           Observer<MawakeetResponse> {
-           override fun onSubscribe(d: Disposable) {
-           }
+        val latitude = 31.05
+        repository.getMawakeet(year, month, longitude, latitude).subscribe(object :
+            Observer<MawakeetResponse> {
+            override fun onSubscribe(d: Disposable) {
+            }
 
-           override fun onNext(newsAPIResponse: MawakeetResponse) {
+            override fun onNext(newsAPIResponse: MawakeetResponse) {
+                val timingList: MutableList<Timings> = ArrayList<Timings>().toMutableList()
+                for (item in newsAPIResponse.data) {
+                    appDatabase.showDatesDao().insertDate(item.date).subscribeOn(
+                        Schedulers.io()
+                    )
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe({
+                            //success
+                            Log.e("date id", it.toString())
+                            item.timings.dateId = it
+                            Log.e("timing object",item.timings.toString())
+                            timingList += item.timings
 
-               for (item in newsAPIResponse.data){
-                   appDatabase?.showDatesDao()?.insertDate(item.date)?.subscribeOn(
-                       Schedulers.io())
-                       ?.observeOn(AndroidSchedulers.mainThread())
-                       ?.subscribe({
-                           //success
-                           Log.e("date", it.toString())
-                           item.timings.dateId = it
-                           insertTimings(item.timings)
+                        }, { exception: Throwable ->
 
-                       }, { exception:Throwable ->
+                            exception.message?.let { Log.e("DB Date", it) }
 
-                           exception.message?.let { Log.e("DB Date", it) }
+                        }).let {
+                            it.let { compositeDisposable.add(it) }
 
-                       }).let {
+                        }
+                }
 
-                       }
-               }
+                insertTimings(timingList)
+            }
 
-               getDateByTimestamp()
-           }
+            override fun onError(e: Throwable) {
 
-           override fun onError(e: Throwable) {
+                errorMessage.value = e.message
+            }
 
-               errorMessage.value = e.message
-           }
-
-           override fun onComplete() {
-           }
-    })
+            override fun onComplete() {
+            }
+        })
     }
 
-    private fun insertTimings(timings: Timings) {
-        appDatabase?.showTimingsDao()?.insertTimings(timings)?.subscribeOn(
-            Schedulers.io())
-            ?.observeOn(AndroidSchedulers.mainThread())
-            ?.subscribe({
+    private fun insertTimings(timings: List<Timings>) {
+        Log.e("insert timing", timings.toString())
+        appDatabase.showTimingsDao().insertTimingsArray(timings).subscribeOn(
+            Schedulers.io()
+        )
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({
                 //success
                 Log.e("timing", it.toString())
+                getDateFromDBByCurrentDate()
 
-            }, { exception:Throwable ->
+
+            }, { exception: Throwable ->
                 exception.message?.let { Log.e("DB Timing", it) }
 
             }).let {
+                it.let { compositeDisposable.add(it) }
 
             }
     }
 
-    public fun getDateByTimestamp(){
+    public fun getDateFromDBByCurrentDate() {
 
+        Log.e("Today", getCurrentDate())
         appDatabase.showDatesDao().getSelectedDateByTimestamp(getCurrentDate())
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
@@ -99,22 +116,38 @@ class MawakeetViewModel @Inject constructor(application: Application) :  Android
                 //success
                 date.value = it
                 getTimingByDateId(it.id)
-                       Log.e("timestamp success",it.toString())
+                Log.e("timestamp success", it.toString())
 
-            }, { exception:Throwable ->
+            }, { exception: Throwable ->
                 deleteAllDataFromDB()
-                getMawakeet()
-                Log.e("timestamp error",exception.toString())
+                Log.e("timestamp error", exception.toString())
 
             }).let {
+                it?.let { compositeDisposable.add(it) }
 
             }
     }
 
     private fun deleteAllDataFromDB() {
         appDatabase.showDatesDao().deleteDate()
-        appDatabase.showTimingsDao().deleteTimings()
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({
+
+                Log.e("date deleted", "$it")
+
+                getMawakeet()
+
+            }, { exception: Throwable ->
+                Log.e("data deleted", "${exception.message}")
+
+
+            }).let {
+                it.let { compositeDisposable.add(it) }
+
+            }
     }
+
 
     private fun getTimingByDateId(id: Long) {
 
@@ -122,9 +155,9 @@ class MawakeetViewModel @Inject constructor(application: Application) :  Android
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe({
                 //success
-               timings.value = it
+                timings.value = it
 
-            }, { exception:Throwable ->
+            }, { exception: Throwable ->
                 exception.message?.let { Log.e("DB Date", it) }
 
             }).let {

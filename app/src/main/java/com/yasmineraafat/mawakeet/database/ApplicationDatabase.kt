@@ -8,7 +8,7 @@ import androidx.room.TypeConverters
 import com.yasmineraafat.mawakeet.models.Date
 import com.yasmineraafat.mawakeet.models.Timings
 
-@Database(entities = [Timings::class, Date::class], version = 1)
+@Database(entities = [Timings::class, Date::class], version = 2)
 abstract class ApplicationDatabase : RoomDatabase() {
 
     abstract fun showTimingsDao(): TimingDAO
@@ -24,7 +24,7 @@ abstract class ApplicationDatabase : RoomDatabase() {
                         context.applicationContext,
                         ApplicationDatabase::class.java, "Mawakeet.db"
                     )
-                        .build()
+                        .fallbackToDestructiveMigration().build()
                 }
             }
             return INSTANCE

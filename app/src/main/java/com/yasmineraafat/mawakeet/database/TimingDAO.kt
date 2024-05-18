@@ -17,7 +17,7 @@ interface TimingDAO {
     fun getAllTimings(): Single<List<Timings>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insertTimingsArray(arrayShows: ArrayList<Timings>): Single<List<Long>>
+    fun insertTimingsArray(arrayShows: List<Timings>): Single<List<Long>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertTimings(timings: Timings): Single<Long>
@@ -26,7 +26,7 @@ interface TimingDAO {
     fun updateTimings(timings: Timings): Completable
 
     @Query("DELETE FROM Timings")
-    fun deleteTimings(): Completable
+    fun deleteTimings(): Single<Int>
 
     @Query("SELECT * FROM Timings WHERE id = :timingId")
     fun getSelectedTiming(timingId: Long): Single<Timings>
